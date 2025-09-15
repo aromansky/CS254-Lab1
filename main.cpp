@@ -15,15 +15,31 @@ enum class OPERATION {
 	SUB2
 };
 
+const OPERATION OPS[] = { OPERATION::ADD3, OPERATION::MUL2, OPERATION::SUB2 };
+const unsigned int ITERATIONS = 100;
+
 struct my_map {
-	sfs
+private:
+	vector<OPERATION> vect;
+
+public:
+	my_map(int start, int fin) {
+		this->vect = vector<OPERATION>(3 * (abs(fin) + 1) + 1);
+	}
+
+	void set_op(int num, OPERATION op) {
+		this->vect[num + vect.size() / 2 + 1] = op;
+	}
+
+	OPERATION get_op(int num) {
+		return this->vect[num + vect.size() / 2 + 1];
+	}
 };
 
-void solve1(int start, int fin, OPERATION ops[], size_t ops_size) {
-	auto start_time = high_resolution_clock::now();
 
-	// в соответсвие числу ставится операция и кол-во шагов
-	vector<OPERATION> map(abs(fin - start) + 1);
+void solve_straight(int start, int fin, const OPERATION ops[], size_t ops_size) {
+	auto start_time = high_resolution_clock::now();
+	my_map map(start, fin);
 	queue<int> q;
 
 
@@ -34,9 +50,16 @@ void solve1(int start, int fin, OPERATION ops[], size_t ops_size) {
 		case OPERATION::MUL2: child = start * 2; break;
 		case OPERATION::SUB2: child = start - 2; break;
 		}
-		if (child != start && child <= fin) {
+		if (child != start && abs(child * 1.0 / fin) <= 1.5) {
 			q.push(child);
-			map[abs(child - start) - 1] = ops[i];
+			map.set_op(child, ops[i]);
+
+			if (child == fin) {
+				while (!q.empty()) {
+					q.pop();
+				}
+				break;
+			}
 		}
 	}
 
@@ -55,19 +78,22 @@ void solve1(int start, int fin, OPERATION ops[], size_t ops_size) {
 			}
 
 
-			if (child > fin || child == parent) {
+			if (abs(child * 1.0 / fin) > 1.5 || child == parent) {
 				continue;
 			}
 
-			if (map[abs(child - start) - 1] == OPERATION::NOT_OP) {
+
+			if (map.get_op(child) == OPERATION::NOT_OP) {
 				q.push(child);
-				map[abs(child - start) - 1] = ops[i];
-			}
-			/*else {
-				if (get<1>(map[parent]) + 1 < get<1>(map[child])) {
-					map[child] = make_tuple(ops[i], get<1>(map[parent]) + 1);
+				map.set_op(child, ops[i]);
+
+				if (child == fin) {
+					while (!q.empty()) {
+						q.pop();
+					}
+					break;
 				}
-			}*/
+			}
 		}
 	}
 
@@ -79,12 +105,12 @@ void solve1(int start, int fin, OPERATION ops[], size_t ops_size) {
 	printf("---------------------------------------------------------------------\n");
 	stack<OPERATION> res;
 
-	if (map[abs(fin - start)] == OPERATION::NOT_OP) {
+	if (map.get_op(fin) == OPERATION::NOT_OP) {
 		printf("no solution\n");
 	}
 	else {
-		while (map[abs(fin - start)] != OPERATION::NOT_OP) {
-			switch (map[abs(fin - start)]) {
+		while (fin != start) {
+			switch (map.get_op(fin)) {
 			case OPERATION::ADD3: res.push(OPERATION::ADD3); fin -= 3; break;
 			case OPERATION::MUL2: res.push(OPERATION::MUL2); fin /= 2; break;
 			case OPERATION::SUB2: res.push(OPERATION::SUB2); fin += 2; break;
@@ -108,20 +134,58 @@ void solve1(int start, int fin, OPERATION ops[], size_t ops_size) {
 	printf("---------------------------------------------------------------------\n");
 }
 
+//void print_solve(int start, int fin, my_map map, microseconds time) {
+//	printf("---------------------------------------------------------------------\n");
+//	stack<OPERATION> res;
+//
+//	if (map.get_op(fin) == OPERATION::NOT_OP) {
+//		printf("no solution\n");
+//	}
+//	else {
+//		while (fin != start) {
+//			switch (map.get_op(fin)) {
+//			case OPERATION::ADD3: res.push(OPERATION::ADD3); fin -= 3; break;
+//			case OPERATION::MUL2: res.push(OPERATION::MUL2); fin /= 2; break;
+//			case OPERATION::SUB2: res.push(OPERATION::SUB2); fin += 2; break;
+//			}
+//		}
+//
+//		int step = 0;
+//		while (!res.empty()) {
+//			step++;
+//			switch (res.top())
+//			{
+//			case OPERATION::ADD3: printf("%2d. %d + 3 = %d\n", step, fin, fin + 3); fin += 3; break;
+//			case OPERATION::MUL2: printf("%2d. %d * 2 = %d\n", step, fin, fin * 2); fin *= 2; break;
+//			case OPERATION::SUB2: printf("%2d. %d - 2 = %d\n", step, fin, fin - 2); fin -= 2; break;
+//			}
+//			res.pop();
+//		}
+//		printf("\nsolution length: %d; nodes considered: %d;\n", step, cnt_steps);
+//		printf("computation time: %.3f milliseconds\n", computation_time.count() / 1000.0);
+//	}
+//	printf("---------------------------------------------------------------------\n");
+//}
+
 int main() {
 	while (true) {
-		int start, fin;
+		int start, fin, cnt_ops;
 		cout << "enter start num: ";
 		cin >> start;
-		if (start == -1) {
-			break;
-		}
+		
 
 		cout << "enter fin num: ";
 		cin >> fin;
 
-		OPERATION ops[] = { OPERATION::ADD3, OPERATION::MUL2, OPERATION::SUB2 };
-		solve1(start, fin, ops, 2);
+		cout << "enter num of operations: ";
+		cin >> cnt_ops;
+
+		
+		solve_straight(start, fin, OPS, cnt_ops);
+
+		if (start < 2) {
+			break;
+		}
 	}
 
 
