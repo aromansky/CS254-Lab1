@@ -23,11 +23,9 @@ private:
 	vector<OPERATION> vect;
 
 public:
-	my_map() {
+	my_map() {}
 
-	}
-
-	my_map(int start, int fin) {
+	my_map(int fin) {
 		this->vect = vector<OPERATION>(3 * (abs(fin) + 1) + 1);
 	}
 
@@ -49,7 +47,7 @@ tuple<my_map, unsigned int, microseconds> solve_straight(int start, int fin, con
 
 	for (unsigned int iter = 0; iter < ITERATIONS; iter++){
 		cnt_steps = 1;
-		map = my_map(start, fin);
+		map = my_map(fin);
 		for (size_t i = 0; i < ops_size; i++) {
 			int child;
 			switch (ops[i]) {
@@ -110,6 +108,80 @@ tuple<my_map, unsigned int, microseconds> solve_straight(int start, int fin, con
 	return make_tuple(map, cnt_steps, computation_time);
 }
 
+
+tuple<my_map, unsigned int, microseconds> solve_reverse(int start, int fin, const OPERATION ops[], size_t ops_size) {
+	auto start_time = high_resolution_clock::now();
+	my_map map;
+	queue<int> q;
+	unsigned int cnt_steps;
+
+	for (unsigned int iter = 0; iter < ITERATIONS; iter++) {
+		cnt_steps = 1;
+		map = my_map(fin);
+		for (size_t i = 0; i < ops_size; i++) {
+			int child;
+			switch (ops[i]) {
+			case OPERATION::ADD3: child = fin - 3; break;
+			case OPERATION::MUL2: child = fin % 2 == 0 ? fin / 2 : fin; break;
+			case OPERATION::SUB2: child = fin + 2; break;
+			}
+
+			if (child == fin || abs(child * 1.0 / fin) > 1.5) {
+				continue;
+			}
+
+			q.push(child);
+			map.set_op(child, ops[i]);
+
+			if (child == start) {
+				while (!q.empty()) {
+					q.pop();
+				}
+				break;
+			}
+		}
+
+		while (!q.empty()) {
+			int parent = q.front();
+			cnt_steps += 1;
+			q.pop();
+
+			for (size_t i = 0; i < ops_size; i++) {
+				int child;
+				switch (ops[i]) {
+				case OPERATION::ADD3: child = parent - 3; break;
+				case OPERATION::MUL2: child = parent % 2 == 0 ? parent / 2 : parent; break;
+				case OPERATION::SUB2: child = parent + 2; break;
+				}
+
+
+				if (abs(child * 1.0 / fin) > 1.5 || child == parent) {
+					continue;
+				}
+
+
+				if (map.get_op(child) == OPERATION::NOT_OP) {
+					q.push(child);
+					map.set_op(child, ops[i]);
+
+					if (child == start) {
+						while (!q.empty()) {
+							q.pop();
+						}
+						break;
+					}
+				}
+			}
+		}
+	}
+
+	auto end_time = high_resolution_clock::now();
+	auto computation_time = duration_cast<microseconds>(end_time - start_time) / ITERATIONS;
+
+	return make_tuple(map, cnt_steps, computation_time);
+}
+
+
 void print_solve(int start, int fin, my_map map, int cnt_steps, microseconds time) {
 	printf("---------------------------------------------------------------------\n");
 	stack<OPERATION> res;
@@ -143,6 +215,27 @@ void print_solve(int start, int fin, my_map map, int cnt_steps, microseconds tim
 	printf("---------------------------------------------------------------------\n");
 }
 
+void print_solve_reverse(int start, int fin, my_map map, int cnt_steps, microseconds time) {
+	printf("---------------------------------------------------------------------\n");
+	if (map.get_op(start) == OPERATION::NOT_OP) {
+		printf("no solution\n");
+	}
+	else {
+		int step = 0;
+		while (start != fin) {
+			step++;
+			switch (map.get_op(start)) {
+			case OPERATION::ADD3: printf("%2d. %d + 3 = %d\n", step, start, start + 3);; start += 3; break;
+			case OPERATION::MUL2: printf("%2d. %d * 2 = %d\n", step, start, start * 2);; start *= 2; break;
+			case OPERATION::SUB2: printf("%2d. %d - 2 = %d\n", step, start, start - 2);; start -= 2;; break;
+			}
+		}
+		printf("\nsolution length: %d; nodes considered: %d;\n", step, cnt_steps);
+		printf("computation time: %.3f milliseconds\n", time.count() / 1000.0);
+	}
+	printf("---------------------------------------------------------------------\n");
+}
+
 int main() {
 	while (true) {
 		int start, fin, cnt_ops;
@@ -156,12 +249,12 @@ int main() {
 		cout << "enter num of operations: ";
 		cin >> cnt_ops;
 
-		auto res = solve_straight(start, fin, OPS, cnt_ops);
-		print_solve(start, fin, get<0>(res), get<1>(res), get<2>(res));
-
-		if (start < 2) {
+		if (cnt_ops < 2) {
 			break;
 		}
+
+		auto res = solve_straight(start, fin, OPS, cnt_ops);
+		print_solve(start, fin, get<0>(res), get<1>(res), get<2>(res));
 	}
 
 
