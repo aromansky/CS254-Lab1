@@ -9,7 +9,7 @@ using namespace std;
 using namespace std::chrono;
 
 enum class OPERATION {
-	NOT_OP,
+	NO_OP,
 	ADD3,
 	MUL2,
 	SUB2
@@ -17,24 +17,40 @@ enum class OPERATION {
 
 const OPERATION OPS[] = { OPERATION::ADD3, OPERATION::MUL2, OPERATION::SUB2 };
 const unsigned int ITERATIONS = 100;
+const  int DELTA = 5;
 
 struct my_map {
 private:
 	vector<OPERATION> vect;
+	int start, fin;
 
 public:
-	my_map() {}
+	my_map() {
+		start = fin = 0;
+	}
 
-	my_map(int fin) {
-		this->vect = vector<OPERATION>(3 * (abs(fin) + 1) + 1);
+	my_map(int start, int fin) {
+		this->vect = vector<OPERATION>(abs(fin) + 1 + 2 * DELTA);
+		this->start = start;
+		this->fin = fin;
 	}
 
 	void set_op(int num, OPERATION op) {
-		this->vect[num + vect.size() / 2 + 1] = op;
+		if (start < fin) {
+			this->vect[num + DELTA] = op;
+		}
+		else {
+			this->vect[-num + DELTA] = op;
+		}
 	}
 
 	OPERATION get_op(int num) {
-		return this->vect[num + vect.size() / 2 + 1];
+		if (start < fin) {
+			return this->vect[num + DELTA];
+		}
+		else {
+			return this->vect[-num + DELTA];
+		}
 	}
 };
 
@@ -47,24 +63,39 @@ tuple<my_map, unsigned int, microseconds> solve_straight(int start, int fin, con
 
 	for (unsigned int iter = 0; iter < ITERATIONS; iter++){
 		cnt_steps = 1;
-		map = my_map(fin);
+		map = my_map(start, fin);
 		for (size_t i = 0; i < ops_size; i++) {
+			if (ops[i] == OPERATION::MUL2 && fin == 0) {
+				continue;
+			}
+
 			int child;
 			switch (ops[i]) {
 			case OPERATION::ADD3: child = start + 3; break;
 			case OPERATION::MUL2: child = start * 2; break;
 			case OPERATION::SUB2: child = start - 2; break;
 			}
-			if (child != start && abs(child * 1.0 / fin) <= 1.5) {
-				q.push(child);
-				map.set_op(child, ops[i]);
 
-				if (child == fin) {
-					while (!q.empty()) {
-						q.pop();
-					}
-					break;
+
+			if (fin > start) {
+				if (child < start - DELTA || child > fin + DELTA) {
+					continue;
 				}
+			}
+			else {
+				if (child < fin - DELTA || child > start + DELTA) {
+					continue;
+				}
+			}
+
+			q.push(child);
+			map.set_op(child, ops[i]);
+
+			if (child == fin) {
+				while (!q.empty()) {
+					q.pop();
+				}
+				break;
 			}
 		}
 
@@ -74,6 +105,10 @@ tuple<my_map, unsigned int, microseconds> solve_straight(int start, int fin, con
 			q.pop();
 
 			for (size_t i = 0; i < ops_size; i++) {
+				if (ops[i] == OPERATION::MUL2 && parent == 0) {
+					continue;
+				}
+
 				int child;
 				switch (ops[i]) {
 				case OPERATION::ADD3: child = parent + 3; break;
@@ -82,12 +117,18 @@ tuple<my_map, unsigned int, microseconds> solve_straight(int start, int fin, con
 				}
 
 
-				if (abs(child * 1.0 / fin) > 1.5 || child == parent) {
-					continue;
+				if (fin > start) {
+					if (child < start - DELTA || child > fin + DELTA) {
+						continue;
+					}
+				}
+				else {
+					if (child < fin - DELTA || child > start + DELTA) {
+						continue;
+					}
 				}
 
-
-				if (map.get_op(child) == OPERATION::NOT_OP) {
+				if (map.get_op(child) == OPERATION::NO_OP) {
 					q.push(child);
 					map.set_op(child, ops[i]);
 
@@ -117,17 +158,28 @@ tuple<my_map, unsigned int, microseconds> solve_reverse(int start, int fin, cons
 
 	for (unsigned int iter = 0; iter < ITERATIONS; iter++) {
 		cnt_steps = 1;
-		map = my_map(fin);
+		map = my_map(start, fin);
 		for (size_t i = 0; i < ops_size; i++) {
+			if (ops[i] == OPERATION::MUL2 && (fin % 2 != 0 || fin == 0)) {
+				continue;
+			}
+
 			int child;
 			switch (ops[i]) {
 			case OPERATION::ADD3: child = fin - 3; break;
-			case OPERATION::MUL2: child = fin % 2 == 0 ? fin / 2 : fin; break;
+			case OPERATION::MUL2: child = fin / 2; break;
 			case OPERATION::SUB2: child = fin + 2; break;
 			}
 
-			if (child == fin || abs(child * 1.0 / fin) > 1.5) {
-				continue;
+			if (fin > start) {
+				if (child < start - DELTA || child > fin + DELTA) {
+					continue;
+				}
+			}
+			else {
+				if (child < fin - DELTA || child > start + DELTA) {
+					continue;
+				}
 			}
 
 			q.push(child);
@@ -147,20 +199,30 @@ tuple<my_map, unsigned int, microseconds> solve_reverse(int start, int fin, cons
 			q.pop();
 
 			for (size_t i = 0; i < ops_size; i++) {
-				int child;
-				switch (ops[i]) {
-				case OPERATION::ADD3: child = parent - 3; break;
-				case OPERATION::MUL2: child = parent % 2 == 0 ? parent / 2 : parent; break;
-				case OPERATION::SUB2: child = parent + 2; break;
-				}
-
-
-				if (abs(child * 1.0 / fin) > 1.5 || child == parent) {
+				if (ops[i] == OPERATION::MUL2 && (parent % 2 != 0 || parent == 0)) {
 					continue;
 				}
 
+				int child;
+				switch (ops[i]) {
+				case OPERATION::ADD3: child = parent - 3; break;
+				case OPERATION::MUL2: child = parent / 2; break;
+				case OPERATION::SUB2: child = parent + 2; break;
+				}
 
-				if (map.get_op(child) == OPERATION::NOT_OP) {
+				if (fin > start) {
+					if (child < start - DELTA || child > fin + DELTA) {
+						continue;
+					}
+				}
+				else {
+					if (child < fin - DELTA || child > start + DELTA) {
+						continue;
+					}
+				}
+
+
+				if (map.get_op(child) == OPERATION::NO_OP) {
 					q.push(child);
 					map.set_op(child, ops[i]);
 
@@ -186,7 +248,7 @@ void print_solve(int start, int fin, my_map map, int cnt_steps, microseconds tim
 	printf("---------------------------------------------------------------------\n");
 	stack<OPERATION> res;
 
-	if (map.get_op(fin) == OPERATION::NOT_OP) {
+	if (map.get_op(fin) == OPERATION::NO_OP) {
 		printf("no solution\n");
 	}
 	else {
@@ -217,7 +279,7 @@ void print_solve(int start, int fin, my_map map, int cnt_steps, microseconds tim
 
 void print_solve_reverse(int start, int fin, my_map map, int cnt_steps, microseconds time) {
 	printf("---------------------------------------------------------------------\n");
-	if (map.get_op(start) == OPERATION::NOT_OP) {
+	if (map.get_op(start) == OPERATION::NO_OP) {
 		printf("no solution\n");
 	}
 	else {
@@ -253,8 +315,8 @@ int main() {
 			break;
 		}
 
-		auto res = solve_straight(start, fin, OPS, cnt_ops);
-		print_solve(start, fin, get<0>(res), get<1>(res), get<2>(res));
+		auto res = solve_reverse(start, fin, OPS, cnt_ops);
+		print_solve_reverse(start, fin, get<0>(res), get<1>(res), get<2>(res));
 	}
 
 
