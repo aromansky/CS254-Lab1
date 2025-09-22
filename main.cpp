@@ -246,16 +246,15 @@ tuple<bidirectional_map, unsigned int, microseconds> solve_bidirectional(int sta
 					}
 				}
 
-				if (map.backward_map.get_op(child) != OPERATION::NO_OP) {
-					found = true;
-					map.meeting_point = child;
-					map.forward_map.set_op(child, map.backward_map.get_op(child));
-					break;
-				}
-
 				if (map.forward_map.get_op(child) == OPERATION::NO_OP) {
 					forward_q.push(child);
 					map.forward_map.set_op(child, ops[i]);
+
+					if (map.backward_map.get_op(child) != OPERATION::NO_OP) {
+						found = true;
+						map.meeting_point = child;
+						break;
+					}
 				}
 			}
 
@@ -292,17 +291,15 @@ tuple<bidirectional_map, unsigned int, microseconds> solve_bidirectional(int sta
 					}
 				}
 
-
-				if (map.forward_map.get_op(child) != OPERATION::NO_OP) {
-					map.meeting_point = child;
-					found = true;
-					map.backward_map.set_op(child, map.forward_map.get_op(child));
-					break;
-				}
-
 				if (map.backward_map.get_op(child) == OPERATION::NO_OP) {
 					backward_q.push(child);
 					map.backward_map.set_op(child, ops[i]);
+
+					if (map.forward_map.get_op(child) != OPERATION::NO_OP) {
+						map.meeting_point = child;
+						found = true;
+						break;
+					}
 				}
 			}
 		}
@@ -381,37 +378,54 @@ void print_solve_bidirectional(int start, int fin, bidirectional_map map, int cn
 		printf("no solution\n");
 	}
 	else {
-		queue<OPERATION> q;
-		int s = start;
+		stack<OPERATION> forward_stack;
 		int meeting_point = map.meeting_point;
 
-		while (s != meeting_point) {
-			switch (map.forward_map.get_op(s)) {
-			case OPERATION::ADD3: q.push(OPERATION::ADD3); s += 3; break;
-			case OPERATION::MUL2: q.push(OPERATION::MUL2); s *= 2; break;
-			case OPERATION::SUB2: q.push(OPERATION::SUB2); s -= 2; break;
+		while (meeting_point != start) {
+			switch (map.forward_map.get_op(meeting_point)) {
+			case OPERATION::ADD3: forward_stack.push(OPERATION::ADD3); meeting_point -= 3; break;
+			case OPERATION::MUL2: forward_stack.push(OPERATION::MUL2); meeting_point /= 2; break;
+			case OPERATION::SUB2: forward_stack.push(OPERATION::SUB2); meeting_point += 2; break;
 			}
 		}
 
-		while (s != fin) {
-			switch (map.backward_map.get_op(s)) {
-			case OPERATION::ADD3: q.push(OPERATION::ADD3); s += 3; break;
-			case OPERATION::MUL2: q.push(OPERATION::MUL2); s *= 2; break;
-			case OPERATION::SUB2: q.push(OPERATION::SUB2); s -= 2; break;
+		queue<OPERATION> backward_queue;
+		meeting_point = map.meeting_point;
+		
+		while (meeting_point != fin) {
+			switch (map.backward_map.get_op(meeting_point)) {
+			case OPERATION::ADD3: backward_queue.push(OPERATION::ADD3); meeting_point += 3; break;
+			case OPERATION::MUL2: backward_queue.push(OPERATION::MUL2); meeting_point *= 2; break;
+			case OPERATION::SUB2: backward_queue.push(OPERATION::SUB2); meeting_point -= 2; break;
 			}
 		}
 
+		
 		int step = 0;
-		while (!q.empty()) {
+		while (!forward_stack.empty()) {
 			step++;
-			switch (q.front())
+			switch (forward_stack.top())
 			{
 			case OPERATION::ADD3: printf("%2d. %d + 3 = %d\n", step, start, start + 3); start += 3; break;
 			case OPERATION::MUL2: printf("%2d. %d * 2 = %d\n", step, start, start * 2); start *= 2; break;
 			case OPERATION::SUB2: printf("%2d. %d - 2 = %d\n", step, start, start - 2); start -= 2; break;
 			}
-			q.pop();
+			forward_stack.pop();
 		}
+
+		//backward_queue.pop();
+
+		while (!backward_queue.empty()) {
+			step++;
+			switch (backward_queue.front())
+			{
+			case OPERATION::ADD3: printf("%2d. %d + 3 = %d\n", step, start, start + 3); start += 3; break;
+			case OPERATION::MUL2: printf("%2d. %d * 2 = %d\n", step, start, start * 2); start *= 2; break;
+			case OPERATION::SUB2: printf("%2d. %d - 2 = %d\n", step, start, start - 2); start -= 2; break;
+			}
+			backward_queue.pop();
+		}
+
 		printf("\nsolution length: %d; nodes considered: %d;\n", step, cnt_steps);
 		printf("computation time: %.3f milliseconds\n", time.count() / 1000.0);
 	}
@@ -429,15 +443,30 @@ int main() {
 		cout << "enter fin num: ";
 		cin >> fin;
 
-		cout << "enter num of operations: ";
-		cin >> cnt_ops;
+		printf("\n-------------------------DIRECT SEARCH 2 OPS-------------------------\n");
+		auto res_straight = solve_straight(start, fin, OPS, 2);
+		print_solve_straight(start, fin, get<0>(res_straight), get<1>(res_straight), get<2>(res_straight));
+		printf("\n");
 
-		if (cnt_ops < 2) {
-			break;
-		}
+		printf("\n-------------------------REVERSE SEARCH 2 OPS-------------------------\n");
+		auto res_reverse = solve_reverse(start, fin, OPS, 2);
+		print_solve_reverse(start, fin, get<0>(res_reverse), get<1>(res_reverse), get<2>(res_reverse));
+		printf("\n");
 
-		auto res = solve_bidirectional(start, fin, OPS, cnt_ops);
-		print_solve_bidirectional(start, fin, get<0>(res), get<1>(res), get<2>(res));
+		printf("\n-------------------------DIRECT SEARCH 3 OPS-------------------------\n");
+		res_straight = solve_straight(start, fin, OPS, 3);
+		print_solve_straight(start, fin, get<0>(res_straight), get<1>(res_straight), get<2>(res_straight));
+		printf("\n");
+
+		printf("\n-------------------------REVERSE SEARCH 3 OPS-------------------------\n");
+		res_reverse = solve_reverse(start, fin, OPS, 3);
+		print_solve_reverse(start, fin, get<0>(res_reverse), get<1>(res_reverse), get<2>(res_reverse));
+		printf("\n");
+
+		printf("\n-------------------------BIDIRECTIONAL SEARCH 2 OPS-------------------------\n");
+		auto res_bidirectional = solve_bidirectional(start, fin, OPS, 2);
+		print_solve_bidirectional(start, fin, get<0>(res_bidirectional), get<1>(res_bidirectional), get<2>(res_bidirectional));
+		printf("\n");
 	}
 
 
